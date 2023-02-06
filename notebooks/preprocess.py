@@ -91,9 +91,9 @@ def load_col_as_dict(col_dict, varnames, timeslice=None, coarsen_size=2):
                         ds = ds.sel(time=timeslice)
                     except:
                         print(f"Skip {key} due to timesclicing error.")
-                          
+                        
                 try:
-                    ds_new = util.regrid_to_common(ds[varname])
+                    ds_new = util.regrid_to_common(ds[[varname]])[varname]
                 except:
                     print(f"Skip {key} due to regridding conflict.")
                     continue
