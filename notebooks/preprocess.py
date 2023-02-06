@@ -73,15 +73,6 @@ def load_col_as_dict(col_dict, varnames, timeslice=None, coarsen_size=2):
                 if ('longitude' in ds.dims) and ('latitude' in ds.dims):
                     ds = ds.rename({'longitude':'lon', 'latitude': 'lat'})
 
-                # Need this temporarily because setting 'decode_times': True is broken
-                ds = xr.decode_cf(ds)
-                ds['time'] = ds['time'].astype('<M8[ns]')
-                ds['time'].values = np.array(
-                    pd.to_datetime(
-                        util.vec_dt_replace(pd.Series(ds['time'].values), day=1.)
-                    )
-                )
-
                 repeats = len(ds['time']) - len(np.unique(ds['time']))
                 if repeats != 0:
                     print(f"Skip {key} before datetime conflict.")
