@@ -11,6 +11,12 @@ import pandas as pd
 
 all_mip_ids = ['far', 'sar', 'tar', 'cmip3', 'cmip5', 'cmip6']
 
+def load_ensembles(varnames, mip_ids=all_mip_ids, timeslice=None):
+    col_dict = get_ipcc_collection(mip_ids=mip_ids)
+    ds_dict = load_col_as_dict(col_dict, varnames, timeslice=timeslice)
+    ens_dict = model_dict_to_ensemble_dict(ds_dict, varnames)
+    return ens_dict
+
 def get_ipcc_collection(mip_ids = all_mip_ids):
     col_dict = {}
     for col_name in mip_ids:
@@ -25,13 +31,6 @@ def get_ipcc_collection(mip_ids = all_mip_ids):
 def get_ipcc_dataset(mip_ids = all_mip_ids):
     col_dict = get_ipcc_collection(mip_ids)
     return
-
-def load_ensembles(varnames, mip_ids=all_mip_ids, timeslice=None):
-    col_dict = get_ipcc_collection(mip_ids=mip_ids)
-    ds_dict = load_col_as_dict(col_dict, varnames, timeslice=timeslice)
-    ens_dict = model_dict_to_ensemble_dict(ds_dict, varnames)
-    return ens_dict
-
 
 def model_dict_to_ensemble_dict(ds_dict, varnames):
     ens_dict = {}
