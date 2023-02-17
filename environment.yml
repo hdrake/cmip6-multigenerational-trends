@@ -22,12 +22,12 @@ dependencies:
   - numpy
   - pandas
   - scipy
-  - xarray=0.14.1
+  - xarray
   - xgcm
   - xskillscore
   # Regridding
   - xesmf
-  - esmpy<=7.1.0
+  - esmpy
   # Viz
   - cartopy 
   - matplotlib

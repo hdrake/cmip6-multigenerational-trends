@@ -11,6 +11,12 @@ import pandas as pd
 
 all_mip_ids = ['far', 'sar', 'tar', 'cmip3', 'cmip5', 'cmip6']
 
+def load_ensembles(varnames, mip_ids=all_mip_ids, timeslice=None):
+    col_dict = get_ipcc_collection(mip_ids=mip_ids)
+    ds_dict = load_col_as_dict(col_dict, varnames, timeslice=timeslice)
+    ens_dict = model_dict_to_ensemble_dict(ds_dict, varnames)
+    return ens_dict
+
 def get_ipcc_collection(mip_ids = all_mip_ids):
     col_dict = {}
     for col_name in mip_ids:
@@ -25,13 +31,6 @@ def get_ipcc_collection(mip_ids = all_mip_ids):
 def get_ipcc_dataset(mip_ids = all_mip_ids):
     col_dict = get_ipcc_collection(mip_ids)
     return
-
-def load_ensembles(varnames, mip_ids=all_mip_ids, timeslice=None):
-    col_dict = get_ipcc_collection(mip_ids=mip_ids)
-    ds_dict = load_col_as_dict(col_dict, varnames, timeslice=timeslice)
-    ens_dict = model_dict_to_ensemble_dict(ds_dict, varnames)
-    return ens_dict
-
 
 def model_dict_to_ensemble_dict(ds_dict, varnames):
     ens_dict = {}
@@ -61,27 +60,21 @@ def load_col_as_dict(col_dict, varnames, timeslice=None, coarsen_size=2):
 
             if cat.df.size == 0: continue
 
-            with util.HiddenPrints():
-                dset_dict = cat.to_dataset_dict(
-                    aggregate=False,
-                    zarr_kwargs={'consolidated': True, 'decode_times': False}
-                )
+            dset_dict = cat.to_dataset_dict(
+                aggregate=False,
+                zarr_kwargs={'consolidated': True, 'decode_times': True}
+            )
 
             ds_dict[mip_id][varname] = {}
             for key, ds in dset_dict.items():
                 # rename spatial dimensions if necessary
                 if ('longitude' in ds.dims) and ('latitude' in ds.dims):
                     ds = ds.rename({'longitude':'lon', 'latitude': 'lat'})
-
-                # Need this temporarily because setting 'decode_times': True is broken
-                ds = xr.decode_cf(ds)
-                ds['time'] = ds['time'].astype('<M8[ns]')
-                ds['time'].values = np.array(
-                    pd.to_datetime(
-                        util.vec_dt_replace(pd.Series(ds['time'].values), day=1.)
-                    )
-                )
-
+                    
+                if ('lon' not in ds.dims) and ('lat' not in ds.dims):
+                    print(f"Skip {key} due to unclear spatial dimensions.")
+                    continue
+                    
                 repeats = len(ds['time']) - len(np.unique(ds['time']))
                 if repeats != 0:
                     print(f"Skip {key} before datetime conflict.")
@@ -97,13 +90,12 @@ def load_col_as_dict(col_dict, varnames, timeslice=None, coarsen_size=2):
                         ds = ds.sel(time=timeslice)
                     except:
                         print(f"Skip {key} due to timesclicing error.")
-
-                with util.HiddenPrints():
-                    try:
-                        ds_new = util.regrid_to_common(ds[varname])
-                    except:
-                        print(f"Skip {key} due to regridding conflict.")
-                        continue
+                        
+                try:
+                    ds_new = util.regrid_to_common(ds[[varname]])[varname]
+                except:
+                    print(f"Skip {key} due to regridding conflict.")
+                    continue
 
                 ds_new.attrs.update(ds.attrs)
                 ds_new = qc.quality_control(ds_new, varname, key, mip_id)
@@ -143,8 +135,7 @@ def load_era(path, timeslice=None, coarsen_size=2):
     # See https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation for details
     era_native['pr'] *= 1000./(24.*60.*60.)
 
-    with util.HiddenPrints():
-        era = util.regrid_to_common(era_native)
+    era = util.regrid_to_common(era_native)
     era.attrs.update(era_native.attrs)
 
     era = era.coarsen({'lat':coarsen_size, 'lon': coarsen_size}, boundary='exact').mean()
